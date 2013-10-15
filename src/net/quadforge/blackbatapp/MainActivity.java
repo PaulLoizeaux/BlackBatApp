@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import java.util.Date; // Used to output time on wifi connected debug
+
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
@@ -20,29 +22,31 @@ import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
-import android.os.Environment;
+import android.os.Environment; // Not used
 import android.os.Handler;
 import android.app.Activity;
 import android.app.DownloadManager;
 import android.content.Context;
-import android.database.Cursor;
-import android.util.Log;
+import android.database.Cursor; // Not used
+import android.util.Log; // Not used
 import android.view.Menu;
 import android.widget.TextView;
 
 public class MainActivity extends Activity {
 
-	private TextView debug, debug1, debug2, debug3, debug4, debug5, wifiScanList;
+	private Date outputDate;
+	
+	private TextView debug, debug1, debug2, debug3, debug4, debug5, wifiScanList; // Debug3 and debug5 not used
 	private WifiManager wifiManager;
 	private List<ScanResult> scanList;
-	private List<WifiLog> loggedNetworks;
+	private List<WifiLog> loggedNetworks; // Not used
 	private List<NetworkConfiguration> networkConfigurations;
 	private NetworkConfiguration targetNetwork;
 	private ConnectivityManager connectManager;
 	private NetworkInfo networkInfo;
 	private Timer scanTimer;
-	private boolean connecting;
-	private boolean connectOnce;
+	private boolean connecting; // boolean used to note when
+	private boolean connectOnce; // boolean used to note when
 	private DownloadManager downloadManager;
 	
 	@Override
@@ -51,12 +55,12 @@ public class MainActivity extends Activity {
 		setContentView(R.layout.activity_main);
 		
 		// Initialize text views.
-		debug        = (TextView)findViewById(R.id.debug);
-		debug1       = (TextView)findViewById(R.id.debug1);
-		debug2       = (TextView)findViewById(R.id.debug2);
-		debug3       = (TextView)findViewById(R.id.debug3);
-		debug4       = (TextView)findViewById(R.id.debug4);
-		wifiScanList = (TextView)findViewById(R.id.wifi_scan_results_list);
+		debug        = (TextView)findViewById(R.id.debug); // Holds info on 
+		debug1       = (TextView)findViewById(R.id.debug1); // Holds info on
+		debug2       = (TextView)findViewById(R.id.debug2); // Holds info on
+		debug3       = (TextView)findViewById(R.id.debug3); // Holds info on
+		debug4       = (TextView)findViewById(R.id.debug4); // Holds info on
+		wifiScanList = (TextView)findViewById(R.id.wifi_scan_results_list); // Holds info on the currently connected wifi network
 		
 		// Initialize WifiManager, ConnectivityManager, NetworkInfo, and DownloadManager
 		wifiManager     = (WifiManager)getSystemService(Context.WIFI_SERVICE);
@@ -89,7 +93,7 @@ public class MainActivity extends Activity {
 		// Check to see if wifi is enabled.
 		if (!wifiManager.isWifiEnabled()) {
 			
-			// Turn wifi on
+			// If wifi is off, turn it on
 			wifiManager.setWifiEnabled(true);
 			
 		}
@@ -147,16 +151,20 @@ public class MainActivity extends Activity {
 
 		@Override
 		public void run() {
+			// Initialize date
+			outputDate = new Date();
+			
 			Handler again = new Handler();
-			again.postDelayed(this, 1000);
+			// again.postDelayed(this, 1000); // Time of delay between each wifi scan?
+			again.postDelayed(this, 60000); // Time of delay between each wifi scan, make a variable or a constant? make a variable, changable via settings file?
 			
 			// Display current network
 			networkInfo = connectManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
 			
 			if (networkInfo.isConnected()) {
-				debug1.setText("current network: " + wifiManager.getConnectionInfo().getSSID());
+				debug1.setText("Current wifi network: " + wifiManager.getConnectionInfo().getSSID() + outputDate.toString());
 			} else {
-				debug1.setText("current network: not connected");
+				debug1.setText("Current wifi network: No network connected..." + outputDate.toString());
 			}
 			
 			StringBuilder scanDisplay = new StringBuilder();
@@ -165,14 +173,14 @@ public class MainActivity extends Activity {
 			
 			for (ScanResult r : scanList) {
 				
-				scanDisplay.append(r.SSID + " " + r.level + "\n");
+				scanDisplay.append(r.SSID + " " + r.level + "\n"); // Adds the SSID, the received signal level and adds a line break
 				checkForKnownNetwork(r);
 				
 			}
 			
 			wifiScanList.setText(scanDisplay.toString());
 			
-			// Debug
+			// Debug that displays 
 			debug4.setText("connecting?: " + connecting);
 			debug.setText("now connecting/connected: " + targetNetwork.SSID);
 
@@ -183,6 +191,12 @@ public class MainActivity extends Activity {
 	private void loadNetworkConfigurations() {
 		
 		// Need to write code here that will dynamically add configured networks
+		// Import from a file saved on the phone is probably the best option
+		
+		/*
+		 * File wifiSettings = new File("wifiSettings.txt");
+		 */
+		
 		NetworkConfiguration net = new NetworkConfiguration("http://192.168.1.1/");
     	net.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
     	net.SSID = "\"OpenWrt\"";
@@ -203,9 +217,9 @@ public class MainActivity extends Activity {
 		
 		Iterator<NetworkConfiguration> i = networkConfigurations.iterator();
 		
-		while (i.hasNext()) {
+		while (i.hasNext()) { // While there are still unchecked entries in the list of networks we can see continue the loop? I think?
 			
-			NetworkConfiguration network = i.next();
+			NetworkConfiguration network = i.next(); // Set network to be the next unchecked network
 			
 			if (r.BSSID.equals(network.BSSID) && !r.BSSID.equals(wifiManager.getConnectionInfo().getBSSID()) && !connecting) {
 				
