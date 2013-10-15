@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">BlackBatApp</string>
+    <string name="action_settings">Settings</string>
+    <string name="wifi_scan_list_title">Current Scan Results:</string>
+    <string name="debug_default_text">debug</string>
+    <string name="debug1_default_text">debug1</string>
+    <string name="debug2_default_text">debug2</string>
+    <string name="debug3_default_text">debug3</string>
+    <string name="debug4_default_text">debug4</string>
+    <string name="wifi_scan_results_list">No current scan results</string>
+
+</resources>
