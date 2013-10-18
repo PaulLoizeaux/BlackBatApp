@@ -19,8 +19,8 @@ public abstract class MissionParameters {
 	public static String DEBUG_TAG = "bbdebug";
 
 	// Time between wifi scans in milliseconds and initial scan delay.
-	public static Long WIFI_SCAN_INTERVAL = (long) 1000;
-	public static Long WIFI_SCAN_INITIAL_DELAY = (long) 0;
+	public static Long WIFI_SCAN_INTERVAL = 1000L;
+	public static Long WIFI_SCAN_INITIAL_DELAY = 0L;
 
 	// Do not change this.
 	public static Long WIFI_TIME_INCREMENT = WIFI_SCAN_INTERVAL / 1000;
