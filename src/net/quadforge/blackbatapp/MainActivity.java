@@ -27,6 +27,7 @@ import android.os.Handler;
 import android.app.Activity;
 import android.app.DownloadManager;
 import android.content.Context;
+import android.content.Intent; // Used to download data using AndFTP
 import android.database.Cursor; // Not used
 import android.util.Log; // Not used
 import android.view.Menu;
@@ -38,7 +39,7 @@ public class MainActivity extends Activity {
 	
 	private TextView debug, debug1, debug2, debug3, debug4, debug5, wifiScanList; // Debug3 and debug5 not used
 	private WifiManager wifiManager;
-	private List<ScanResult> scanList;
+	private List<ScanResult> scanList; // List of all wifi networks that we can see
 	private List<WifiLog> loggedNetworks; // Not used
 	private List<NetworkConfiguration> networkConfigurations;
 	private NetworkConfiguration targetNetwork;
@@ -56,7 +57,7 @@ public class MainActivity extends Activity {
 		
 		// Initialize text views.
 		debug        = (TextView)findViewById(R.id.debug); // Holds info on 
-		debug1       = (TextView)findViewById(R.id.debug1); // Holds info on
+		debug1       = (TextView)findViewById(R.id.debug1); // Holds info on the status of a wifi connection
 		debug2       = (TextView)findViewById(R.id.debug2); // Holds info on
 		debug3       = (TextView)findViewById(R.id.debug3); // Holds info on
 		debug4       = (TextView)findViewById(R.id.debug4); // Holds info on
@@ -156,7 +157,7 @@ public class MainActivity extends Activity {
 			
 			Handler again = new Handler();
 			// again.postDelayed(this, 1000); // Time of delay between each wifi scan?
-			again.postDelayed(this, 60000); // Time of delay between each wifi scan, make a variable or a constant? make a variable, changable via settings file?
+			again.postDelayed(this, MissionParameters.WIFI_SCAN_INTERVAL); //TODO Time of delay between each wifi scan. Change to a variable, changable via settings file
 			
 			// Display current network
 			networkInfo = connectManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
@@ -242,14 +243,16 @@ public class MainActivity extends Activity {
 	
 	Thread connectToNetwork = new Thread() {
 		
-	    @Override
+		// This thread does the work of downloading data from the base station once connected
+	    
+		@Override
 	    public void run() {
 	    	
-	    	while (true) {
+	    	while (true) { // Always have this looking to see if we are connected to a new wifi network
 	    		
 	    		if (connecting && !connectOnce) {
-	    			wifiManager.disconnect();
-	    			wifiManager.enableNetwork(targetNetwork.networkId, true);
+	    			wifiManager.disconnect(); // Make sure we are disconnected from any wifi network
+	    			wifiManager.enableNetwork(targetNetwork.networkId, true); // 
 	    			wifiManager.reconnect();
 	    			connectOnce = true;
 	    			
@@ -260,7 +263,7 @@ public class MainActivity extends Activity {
 		    			public void run() {
 		    				
 		    				// queue download
-		    				ArrayList<Uri> dlUris = targetNetwork.getDownloadUris();
+		    				ArrayList<Uri> dlUris = targetNetwork.getDownloadUris(); // Make an array list of the files we want to download, in URI form
 		    				
 		    				for (Uri u : dlUris) {
 		    					downloadData(u);
@@ -271,17 +274,24 @@ public class MainActivity extends Activity {
 		    					
 		    					@Override
 		    					public void run() {
+		    						
+		    						// Reset the variable
 		    						connecting = false;
+		    						// Reset the variable
 		    						connectOnce = false;
+		    						// Disconnect from any connected network
 		    						wifiManager.disconnect();
-		    						targetNetwork.equals(null);
+		    						// TODO Figure out what this does
+		    						targetNetwork.equals(null); 
+		    						// Remove the network we just downloaded data from out of wifi config
+		    						wifiManager.removeNetwork(targetNetwork.networkId);
 		    					}
 		    					
-		    				}, 20000); // <-- time to download
+		    				}, 20000); // <-- Time to allow for the file to download, if it doesn't download in this time we interrupt the download
 		    				
 		    			}
 		    			
-		    		}, 20000); // <--- time to wait before download (after connecting)
+		    		}, 20000); // <--- Time to wait before download (after connecting) (Orig)
 	    		}
 	    		
 	    	}
@@ -289,10 +299,69 @@ public class MainActivity extends Activity {
 	    }
 	};
 	
+	/**
+	 * Downloads the specified file from the base station. Uses the native Android Download Manager
+	 * @param uri The specified file to download
+	 */
 	private void downloadData(Uri uri) {
 		
+		//TODO Use AndFTP to do this as an FTP download instead of an HTTP download as it currently does
+		
+		// Uses http://developer.android.com/reference/android/app/DownloadManager.html
 		DownloadManager.Request downloadRequest = new DownloadManager.Request(uri);
+		// URI of external storage to store downloaded data
+		downloadRequest.setDestinationUri();
 		
 		downloadManager.enqueue(downloadRequest);
+		
+		
 	}
+	
+	/*
+	private void downloadAndFTPData(Uri uri)
+	{
+		// Taken from http://www.lysesoft.com/products/andftp/intent.html
+
+		Intent intent = new Intent();
+		
+		intent.setAction(Intent.ACTION_PICK);
+		// Server to download from
+		Uri ftpUri = Uri.parse("ftp://192.168.1.2");
+		
+		intent.setDataAndType(ftpUri, "vnd.android.cursor.dir/lysesoft.andftp.uri");
+		// Action for AndFTP to do, in this case download from the server
+		intent.putExtra("command_type", "download");
+		// FTP username to use
+		intent.putExtra("ftp_username", "anonymous");
+		// FTP password to use
+		intent.putExtra("ftp_password", "test@test.com");
+		
+		//intent.putExtra("ftp_keyfile", "/sdcard/rsakey.txt");
+		//intent.putExtra("ftp_keypass", "optionalkeypassword");
+		// First file to download
+		intent.putExtra("remote_file1", "/remotefolder/subfolder/file1.zip");
+		// Second file to download
+		intent.putExtra("remote_file2", "/remotefolder/subfolder/file2.zip");
+		// Target local folder where files will be downloaded.
+		intent.putExtra("local_folder", "/sdcard/stationdata");
+		
+		// Finally start the Activity to be closed after transfer:
+		// Close the UI as all settings have been input
+		intent.putExtra("close_ui", "true");
+		// 
+		startActivityForResult(intent, DOWNLOAD_FILES_REQUEST);
+		
+		// Transfer status will be returned in onActivityResult method:
+		String status = intent.getStringExtra("TRANSFERSTATUS");
+		String files = intent.getStringExtra("TRANSFERAMOUNT"); 
+		String size = intent.getStringExtra("TRANSFERSIZE");
+		String time = intent.getStringExtra("TRANSFERTIME");
+	}
+	*/
+	
+	
+	
+	//TODO Make a broadcast receiver that identifies when we get connected to a wifi network. This can then try and download our file
+	//TODO Make a broadcast receiver that identifies when a file is done downloading from the base station
+	//TODO Make a broadcast receiver for ACTION_NOTIFICATION_CLICKED
 }
