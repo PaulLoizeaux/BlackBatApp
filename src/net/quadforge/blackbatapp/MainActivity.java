@@ -163,9 +163,9 @@ public class MainActivity extends Activity {
 			networkInfo = connectManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
 			
 			if (networkInfo.isConnected()) {
-				debug1.setText("Current wifi network: " + wifiManager.getConnectionInfo().getSSID() + outputDate.toString());
+				debug1.setText("Current wifi network: " + wifiManager.getConnectionInfo().getSSID() + " " + outputDate.toString());
 			} else {
-				debug1.setText("Current wifi network: No network connected..." + outputDate.toString());
+				debug1.setText("Current wifi network: No network connected... " + outputDate.toString());
 			}
 			
 			StringBuilder scanDisplay = new StringBuilder();
@@ -265,9 +265,10 @@ public class MainActivity extends Activity {
 		    				// queue download
 		    				ArrayList<Uri> dlUris = targetNetwork.getDownloadUris(); // Make an array list of the files we want to download, in URI form
 		    				
-		    				for (Uri u : dlUris) {
-		    					downloadData(u);
-		    				}
+		    				//for (Uri u : dlUris) {
+		    					//downloadData(u); // Send files to download to the downloadData method
+		    					downloadData(); // At this time we only need to call this as files to download are hard coded
+		    				//}
 		    				
 		    				Timer download = new Timer();
 		    				download.schedule(new TimerTask() {
@@ -287,11 +288,11 @@ public class MainActivity extends Activity {
 		    						wifiManager.removeNetwork(targetNetwork.networkId);
 		    					}
 		    					
-		    				}, 20000); // <-- Time to allow for the file to download, if it doesn't download in this time we interrupt the download
+		    				}, 120000); // <-- Time to allow for the file to download, if it doesn't download in this time we interrupt the download
 		    				
 		    			}
 		    			
-		    		}, 20000); // <--- Time to wait before download (after connecting) (Orig)
+		    		}, 120000); // <--- Time to wait before download (after connecting) (Orig)
 	    		}
 	    		
 	    	}
@@ -299,69 +300,54 @@ public class MainActivity extends Activity {
 	    }
 	};
 	
-	/**
-	 * Downloads the specified file from the base station. Uses the native Android Download Manager
-	 * @param uri The specified file to download
-	 */
-	private void downloadData(Uri uri) {
-		
-		//TODO Use AndFTP to do this as an FTP download instead of an HTTP download as it currently does
-		
-		// Uses http://developer.android.com/reference/android/app/DownloadManager.html
-		DownloadManager.Request downloadRequest = new DownloadManager.Request(uri);
-		// URI of external storage to store downloaded data
-		downloadRequest.setDestinationUri();
-		
-		downloadManager.enqueue(downloadRequest);
-		
-		
-	}
 	
-	/*
-	private void downloadAndFTPData(Uri uri)
+		private void downloadData()
+		//private void downloadData(Uri uri)
 	{
 		// Taken from http://www.lysesoft.com/products/andftp/intent.html
+		// These settings are stored in a key : value format. The first thing is the key, the property name, second is the setting value
 
-		Intent intent = new Intent();
+		Intent downloadFiles = new Intent();
 		
-		intent.setAction(Intent.ACTION_PICK);
+		downloadFiles.setAction(Intent.ACTION_PICK);
 		// Server to download from
 		Uri ftpUri = Uri.parse("ftp://192.168.1.2");
 		
-		intent.setDataAndType(ftpUri, "vnd.android.cursor.dir/lysesoft.andftp.uri");
+		downloadFiles.setDataAndType(ftpUri, "vnd.android.cursor.dir/lysesoft.andftp.uri");
 		// Action for AndFTP to do, in this case download from the server
-		intent.putExtra("command_type", "download");
+		downloadFiles.putExtra("command_type", "download");
 		// FTP username to use
-		intent.putExtra("ftp_username", "anonymous");
+		downloadFiles.putExtra("ftp_username", "root");
 		// FTP password to use
-		intent.putExtra("ftp_password", "test@test.com");
+		downloadFiles.putExtra("ftp_password", "root");
 		
 		//intent.putExtra("ftp_keyfile", "/sdcard/rsakey.txt");
 		//intent.putExtra("ftp_keypass", "optionalkeypassword");
+		
 		// First file to download
-		intent.putExtra("remote_file1", "/remotefolder/subfolder/file1.zip");
+		downloadFiles.putExtra("remote_file1", "/www/Abraham.txt");
 		// Second file to download
-		intent.putExtra("remote_file2", "/remotefolder/subfolder/file2.zip");
-		// Target local folder where files will be downloaded.
-		intent.putExtra("local_folder", "/sdcard/stationdata");
+		downloadFiles.putExtra("remote_file2", "/www/Linksys.txt");
+		// Third file to download
+		downloadFiles.putExtra("remote_file3", "/www/test.png");
+		// Target local folder where files will be downloaded
+		// downloadFiles.putExtra("local_folder", Environment.getExternalStorageDirectory().getPath() + "/stationdata");
+		//downloadFiles.putExtra("local_folder", Environment.getExternalStorageDirectory().getAbsolutePath() + "stationdata");
+		downloadFiles.putExtra("local_folder", "/mnt/sdcard2/stationdata"); // Bad idea to hardcode this for real but doing this for testing
 		
 		// Finally start the Activity to be closed after transfer:
 		// Close the UI as all settings have been input
-		intent.putExtra("close_ui", "true");
+		downloadFiles.putExtra("close_ui", "true");
 		// 
-		startActivityForResult(intent, DOWNLOAD_FILES_REQUEST);
+		/*
+		startActivityForResult(downloadFiles, DOWNLOAD_FILES_REQUEST);
 		
 		// Transfer status will be returned in onActivityResult method:
-		String status = intent.getStringExtra("TRANSFERSTATUS");
-		String files = intent.getStringExtra("TRANSFERAMOUNT"); 
-		String size = intent.getStringExtra("TRANSFERSIZE");
-		String time = intent.getStringExtra("TRANSFERTIME");
+		String status = downloadFiles.getStringExtra("TRANSFERSTATUS");
+		String files = downloadFiles.getStringExtra("TRANSFERAMOUNT"); 
+		String size = downloadFiles.getStringExtra("TRANSFERSIZE");
+		String time = downloadFiles.getStringExtra("TRANSFERTIME");
+		*/
 	}
-	*/
 	
-	
-	
-	//TODO Make a broadcast receiver that identifies when we get connected to a wifi network. This can then try and download our file
-	//TODO Make a broadcast receiver that identifies when a file is done downloading from the base station
-	//TODO Make a broadcast receiver for ACTION_NOTIFICATION_CLICKED
 }
