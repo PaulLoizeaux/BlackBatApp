@@ -29,13 +29,26 @@ import android.app.DownloadManager;
 import android.content.Context;
 import android.content.Intent; // Used to download data using AndFTP
 import android.database.Cursor; // Not used
-import android.util.Log; // Not used
+import android.util.Log;
 import android.view.Menu;
 import android.widget.TextView;
 
 public class MainActivity extends Activity {
 
+	// Allows us to output the date on each screen refresh for wifi scanning
 	private Date outputDate;
+	
+	// Allows us to tag our output to LogCat
+	private static final String TAG = MainActivity.class.getName();
+	
+	// Used when creating an AndFTP intent to tell it what we want done
+	private static final int UPLOAD_FILES_REQUEST = 0;
+	private static final int DOWNLOAD_FILES_REQUEST = 1;
+	private static final int UPLOAD_FOLDER_REQUEST = 2;
+	private static final int DOWNLOAD_FOLDER_REQUEST = 3;
+	private static final int DOWNLOAD_FILE_ALIAS_REQUEST = 4;
+	private static final int BROWSE_REQUEST = 5;
+	private static final int SEND_REQUEST = 6;
 	
 	private TextView debug, debug1, debug2, debug3, debug4, debug5, wifiScanList; // Debug3 and debug5 not used
 	private WifiManager wifiManager;
@@ -148,6 +161,7 @@ public class MainActivity extends Activity {
 		return true;
 	}
 	
+	// Receives new scans, calls other methods to do connecting and downloading. Does do the work of displaying debug info to screen
 	private Runnable scanReceiver = new Runnable() {
 
 		@Override
@@ -170,18 +184,25 @@ public class MainActivity extends Activity {
 			
 			StringBuilder scanDisplay = new StringBuilder();
 			
+			// Get the results of the last wifi scan
 			scanList = wifiManager.getScanResults();
 			
+			// A for each loop that goes into each entry in the scanList List
 			for (ScanResult r : scanList) {
 				
-				scanDisplay.append(r.SSID + " " + r.level + "\n"); // Adds the SSID, the received signal level and adds a line break
+				// Adds the SSID, the received signal level and adds a line break
+				scanDisplay.append(r.SSID + " " + r.level + "\n");
+				// Passes a single wifi network to the checkForKnownNetwork method
 				checkForKnownNetwork(r);
 				
 			}
 			
+			// Save the scanDisplay to an ArrayList so we can write to disk at end of program
+			
+			// Set this textView to the results of the scan that we organized in the above for each loop
 			wifiScanList.setText(scanDisplay.toString());
 			
-			// Debug that displays 
+			// Debug that displays if we are in the process of connecting or if we are connected
 			debug4.setText("connecting?: " + connecting);
 			debug.setText("now connecting/connected: " + targetNetwork.SSID);
 
@@ -189,6 +210,7 @@ public class MainActivity extends Activity {
 		
 	};
 	
+	// This most likely won't be needed as we will just connect to any network we find
 	private void loadNetworkConfigurations() {
 		
 		// Need to write code here that will dynamically add configured networks
@@ -214,6 +236,7 @@ public class MainActivity extends Activity {
     	
 	}
 
+	// Most likely won't be needed as we just connect to any network we find
 	private boolean checkForKnownNetwork(ScanResult r) {
 		
 		Iterator<NetworkConfiguration> i = networkConfigurations.iterator();
@@ -241,6 +264,7 @@ public class MainActivity extends Activity {
 		return false;	
 	}
 	
+	// Does the work of connecting, downloading, and then disconnecting from wifi networks
 	Thread connectToNetwork = new Thread() {
 		
 		// This thread does the work of downloading data from the base station once connected
@@ -301,6 +325,7 @@ public class MainActivity extends Activity {
 	};
 	
 	
+		// Uses AndFTP to download data off of weather stations
 		private void downloadData()
 		//private void downloadData(Uri uri)
 	{
@@ -324,6 +349,9 @@ public class MainActivity extends Activity {
 		//intent.putExtra("ftp_keyfile", "/sdcard/rsakey.txt");
 		//intent.putExtra("ftp_keypass", "optionalkeypassword");
 		
+		// Set optional FTP options
+		downloadFiles.putExtra("ftp_pasv", "true");
+		
 		// First file to download
 		downloadFiles.putExtra("remote_file1", "/www/Abraham.txt");
 		// Second file to download
@@ -333,13 +361,12 @@ public class MainActivity extends Activity {
 		// Target local folder where files will be downloaded
 		// downloadFiles.putExtra("local_folder", Environment.getExternalStorageDirectory().getPath() + "/stationdata");
 		//downloadFiles.putExtra("local_folder", Environment.getExternalStorageDirectory().getAbsolutePath() + "stationdata");
-		downloadFiles.putExtra("local_folder", "/mnt/sdcard2/stationdata"); // Bad idea to hardcode this for real but doing this for testing
+		downloadFiles.putExtra("local_folder", "/sdcard2/stationdata"); // Bad idea to hardcode this for real but doing this for testing
 		
+		// Closes the AndFTP interface after the download is complete
+		downloadFiles.putExtra("close_ui", "true"); 
+
 		// Finally start the Activity to be closed after transfer:
-		// Close the UI as all settings have been input
-		downloadFiles.putExtra("close_ui", "true");
-		// 
-		/*
 		startActivityForResult(downloadFiles, DOWNLOAD_FILES_REQUEST);
 		
 		// Transfer status will be returned in onActivityResult method:
@@ -347,7 +374,38 @@ public class MainActivity extends Activity {
 		String files = downloadFiles.getStringExtra("TRANSFERAMOUNT"); 
 		String size = downloadFiles.getStringExtra("TRANSFERSIZE");
 		String time = downloadFiles.getStringExtra("TRANSFERTIME");
-		*/
+
 	}
+		
+		// Taken from the AndFTP example third party client
+		protected void onActivityResult(int requestCode, int resultCode, Intent intent) 
+		{
+			Log.i(TAG, "Result: "+resultCode+ " from request: "+requestCode);
+			if (intent != null)
+			{
+				String transferredBytesStr = intent.getStringExtra("TRANSFERSIZE");
+				String transferTimeStr = intent.getStringExtra("TRANSFERTIME");
+				Log.i(TAG, "Transfer status: " + intent.getStringExtra("TRANSFERSTATUS"));
+				Log.i(TAG, "Transfer amount: " + intent.getStringExtra("TRANSFERAMOUNT") + " file(s)");
+				Log.i(TAG, "Transfer size: " + transferredBytesStr + " bytes");
+				Log.i(TAG, "Transfer time: " + transferTimeStr + " milliseconds");
+				// Compute transfer rate.
+				if ((transferredBytesStr != null) && (transferTimeStr != null))
+				{
+					try
+					{
+						long transferredBytes = Long.parseLong(transferredBytesStr);
+						long transferTime = Long.parseLong(transferTimeStr);
+						double transferRate = 0.0;
+						if (transferTime > 0) transferRate = ((transferredBytes) * 1000.0) / (transferTime * 1024.0);
+						Log.i(TAG, "Transfer rate: " + transferRate + " KB/s");
+					} 
+					catch (NumberFormatException e)
+					{
+						// Cannot parse string.
+					}
+				}
+			}
+		}
 	
 }
