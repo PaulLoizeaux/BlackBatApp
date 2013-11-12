@@ -55,7 +55,6 @@ public class MainActivity extends Activity {
 	private Timer scanTimer;
 	private boolean connecting; // boolean used to note when
 	private boolean connectOnce; // boolean used to note when
-	private DownloadManager downloadManager;
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -74,7 +73,6 @@ public class MainActivity extends Activity {
 		wifiManager     = (WifiManager)getSystemService(Context.WIFI_SERVICE);
 		connectManager  = (ConnectivityManager)getSystemService(CONNECTIVITY_SERVICE);
 		networkInfo     = connectManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
-		downloadManager = (DownloadManager)getSystemService(DOWNLOAD_SERVICE);
 		
 		// Initialize lists
 		scanList              = new ArrayList<ScanResult>();
