@@ -42,13 +42,7 @@ public class MainActivity extends Activity {
 	private static final String TAG = MainActivity.class.getName();
 	
 	// Used when creating an AndFTP intent to tell it what we want done
-	private static final int UPLOAD_FILES_REQUEST = 0;
 	private static final int DOWNLOAD_FILES_REQUEST = 1;
-	private static final int UPLOAD_FOLDER_REQUEST = 2;
-	private static final int DOWNLOAD_FOLDER_REQUEST = 3;
-	private static final int DOWNLOAD_FILE_ALIAS_REQUEST = 4;
-	private static final int BROWSE_REQUEST = 5;
-	private static final int SEND_REQUEST = 6;
 	
 	private TextView debug, debug1, debug2, debug3, debug4, debug5, wifiScanList; // Debug3 and debug5 not used
 	private WifiManager wifiManager;
