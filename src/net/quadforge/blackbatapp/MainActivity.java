@@ -347,9 +347,9 @@ public class MainActivity extends Activity {
 		// First file to download
 		downloadFiles.putExtra("remote_file1", "/www/Abraham.txt");
 		// Second file to download
-		downloadFiles.putExtra("remote_file2", "/www/Linksys.txt");
+		//downloadFiles.putExtra("remote_file2", "/www/Linksys.txt");
 		// Third file to download
-		downloadFiles.putExtra("remote_file3", "/www/test.png");
+		//downloadFiles.putExtra("remote_file3", "/www/test.png");
 		// Target local folder where files will be downloaded
 		// downloadFiles.putExtra("local_folder", Environment.getExternalStorageDirectory().getPath() + "/stationdata");
 		//downloadFiles.putExtra("local_folder", Environment.getExternalStorageDirectory().getAbsolutePath() + "stationdata");
@@ -360,12 +360,6 @@ public class MainActivity extends Activity {
 
 		// Finally start the Activity to be closed after transfer:
 		startActivityForResult(downloadFiles, DOWNLOAD_FILES_REQUEST);
-		
-		// Transfer status will be returned in onActivityResult method:
-		String status = downloadFiles.getStringExtra("TRANSFERSTATUS");
-		String files = downloadFiles.getStringExtra("TRANSFERAMOUNT"); 
-		String size = downloadFiles.getStringExtra("TRANSFERSIZE");
-		String time = downloadFiles.getStringExtra("TRANSFERTIME");
 
 	}
 		
@@ -389,7 +383,12 @@ public class MainActivity extends Activity {
 						long transferredBytes = Long.parseLong(transferredBytesStr);
 						long transferTime = Long.parseLong(transferTimeStr);
 						double transferRate = 0.0;
-						if (transferTime > 0) transferRate = ((transferredBytes) * 1000.0) / (transferTime * 1024.0);
+						
+						if (transferTime > 0)
+						{
+						transferRate = ((transferredBytes) * 1000.0) / (transferTime * 1024.0);
+						}
+						
 						Log.i(TAG, "Transfer rate: " + transferRate + " KB/s");
 					} 
 					catch (NumberFormatException e)
