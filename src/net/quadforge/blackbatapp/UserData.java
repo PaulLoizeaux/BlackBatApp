@@ -1,3 +1,9 @@
+/**
+ * Works with SQL databases.
+ * 
+ * Unused at this time
+ */
+
 package net.quadforge.blackbatapp;
 
 import android.content.Context;

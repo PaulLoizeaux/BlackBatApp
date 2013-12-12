@@ -1,3 +1,7 @@
+/**
+ * Logs wifi network we see while the program is running
+ */
+
 package net.quadforge.blackbatapp;
 
 import java.util.ArrayList;
@@ -20,7 +24,7 @@ public class WifiLog {
 	
 	// CONSTRUCTOR
 	public WifiLog() {
-		secondsInRange = (long)0;
+		secondsInRange = 0L;
 		levelArray = new ArrayList<Integer>(0);
 		isInRange = true;
 	}

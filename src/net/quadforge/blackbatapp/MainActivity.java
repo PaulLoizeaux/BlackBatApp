@@ -1,23 +1,34 @@
-/* 
+/** 
+ * Connects to wifi networks, connects to an FTP server, then disconnects from the wifi network
+ * 
  * BlackBat Application - Version 0.1.0
  * ============================
- * last updated: 10/16/2013
+ * last updated: 11/29/2013
  * 
  */
 
 package net.quadforge.blackbatapp;
 
+import java.io.File; // Allows us to output wifi log
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream; // Allows output to file
+import java.io.FileWriter; // Allows us to output wifi log
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
+
+import org.apache.commons.net.ftp.FTPClient; // Allows us to download via FTP
+import org.apache.commons.net.ftp.FTPClientConfig; // Gives us configuration options for the above FTP client
+import org.apache.commons.net.ftp.FTPFile;
+import org.apache.commons.net.ftp.FTPReply;
 
 import java.util.Date; // Used to output time on wifi connected debug
 
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import android.net.Uri;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
@@ -25,10 +36,7 @@ import android.os.Bundle;
 import android.os.Environment; // Not used
 import android.os.Handler;
 import android.app.Activity;
-import android.app.DownloadManager;
 import android.content.Context;
-import android.content.Intent; // Used to download data using AndFTP
-import android.database.Cursor; // Not used
 import android.util.Log;
 import android.view.Menu;
 import android.widget.TextView;
@@ -38,23 +46,21 @@ public class MainActivity extends Activity {
 	// Allows us to output the date on each screen refresh for wifi scanning
 	private Date outputDate;
 	
-	// Allows us to tag our output to LogCat
+	// Allows us to tag our output to Android's LogCat
 	private static final String TAG = MainActivity.class.getName();
 	
 	// Used when creating an AndFTP intent to tell it what we want done
-	private static final int DOWNLOAD_FILES_REQUEST = 1;
+	//private static final int DOWNLOAD_FILES_REQUEST = 1;
 	
-	private TextView debug, debug1, debug2, debug3, debug4, debug5, wifiScanList; // Debug3 and debug5 not used
+	private TextView debug, debug1, debug2, debug3, debug4, debug5, wifiScanList; // debug, debug3, and debug5 not used
 	private WifiManager wifiManager;
 	private List<ScanResult> scanList; // List of all wifi networks that we can see
-	private List<WifiLog> loggedNetworks; // Not used
-	private List<NetworkConfiguration> networkConfigurations;
-	private NetworkConfiguration targetNetwork;
+	//private List<WifiLog> loggedNetworks; // Not used
+	private List<String> allScans;
 	private ConnectivityManager connectManager;
 	private NetworkInfo networkInfo;
 	private Timer scanTimer;
-	private boolean connecting; // boolean used to note when
-	private boolean connectOnce; // boolean used to note when
+	private NetworkConfiguration targetedNetwork; // Stores the wifi network we want to connect to each scan
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -76,25 +82,21 @@ public class MainActivity extends Activity {
 		
 		// Initialize lists
 		scanList              = new ArrayList<ScanResult>();
-		loggedNetworks        = new ArrayList<WifiLog>();
-		networkConfigurations = new ArrayList<NetworkConfiguration>();
+		//loggedNetworks        = new ArrayList<WifiLog>();
+		allScans = new ArrayList<String> (); // Place to store all the scans seen by the application
 		
-		// Initialize globals
-		targetNetwork = new NetworkConfiguration();
-		connecting = false;
-		connectOnce = false;
+		// Initialize the variable to store the network we want to connect to
+		targetedNetwork = new NetworkConfiguration();
 		
-		// Debugging
+		// Debugging 
 		
 		// Start thread. Needs to be here because onResume() may run more than once and you can only start a thread once
-		connectToNetwork.start();
+		// connectToNetwork.start();
 	}
 	
 	@Override
 	protected void onStart() {
 		super.onStart();
-		
-		loadNetworkConfigurations();
 		
 		// Check to see if wifi is enabled.
 		if (!wifiManager.isWifiEnabled()) {
@@ -130,19 +132,53 @@ public class MainActivity extends Activity {
 	protected void onPause() {
 		super.onPause();
 		
+		Log.d(TAG, "onPause activated");
+		
 		finish();
 	}
 
 	@Override
 	protected void onStop() {
-		super.onStop();
+		super.onStop(); // Always call this first
+		
+		Log.d(TAG, "onStop activated");
 		
 		finish();
 	}
 	
+	/**
+	 * Saves found wifi networks to a file
+	 */
 	@Override
 	protected void onDestroy() {
 		super.onDestroy();
+		
+		Log.d(TAG, "onDestroy activated");
+		
+		// Overall: Save allScans to a file so we can read this log of wifi data seen on the flight once quad is retrieved
+
+		// Open a new file to save scans to, embed time and date in file name
+		File outputFile = new File(Environment.getExternalStorageDirectory() + "QuadForge/WifiScan.txt");
+
+		try
+		{
+			// Make a FileWriter so we can save characters
+			FileWriter wifiWriter = new FileWriter(outputFile);
+
+			// Output allScans as a huge String to that file
+			// This might need line breaks between each line, I'm not sure
+			wifiWriter.write(allScans.toString());
+
+			// Done using the writer so we close it
+			wifiWriter.close();
+			
+			Log.i(TAG, "Wifi scans saved to file");
+
+		}
+		catch (IOException e)
+		{
+			e.getStackTrace();
+		}
 		
 		finish();
 	}
@@ -153,25 +189,37 @@ public class MainActivity extends Activity {
 		return true;
 	}
 	
-	// Receives new scans, calls other methods to do connecting and downloading. Does do the work of displaying debug info to screen
+	/**
+	 * Receives new scans, calls other methods to do connecting and downloading. Does do the work of displaying debug info to screen
+	 */
 	private Runnable scanReceiver = new Runnable() {
 
 		@Override
 		public void run() {
-			// Initialize date
+			
+			// Initialize date, used in screen output of wifi scans
 			outputDate = new Date();
 			
+			
 			Handler again = new Handler();
-			// again.postDelayed(this, 1000); // Time of delay between each wifi scan?
 			again.postDelayed(this, MissionParameters.WIFI_SCAN_INTERVAL); //TODO Time of delay between each wifi scan. Change to a variable, changable via settings file
 			
 			// Display current network
 			networkInfo = connectManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
 			
 			if (networkInfo.isConnected()) {
+				
+				// Outputs the wifi network SSID/name and also the current date and time
 				debug1.setText("Current wifi network: " + wifiManager.getConnectionInfo().getSSID() + " " + outputDate.toString());
-			} else {
+				
+				Log.d(TAG, "Connected to " + wifiManager.getConnectionInfo().getSSID());
+			}
+			else {
+				
+				// Outputs that no wifi netork is connect and the current date and time 
 				debug1.setText("Current wifi network: No network connected... " + outputDate.toString());
+				
+				Log.d(TAG, "Not connected to a wifi network");
 			}
 			
 			StringBuilder scanDisplay = new StringBuilder();
@@ -179,13 +227,55 @@ public class MainActivity extends Activity {
 			// Get the results of the last wifi scan
 			scanList = wifiManager.getScanResults();
 			
+			Log.d(TAG, "Got new scan results.");
+			
 			// A for each loop that goes into each entry in the scanList List
 			for (ScanResult r : scanList) {
 				
-				// Adds the SSID, the received signal level and adds a line break
-				scanDisplay.append(r.SSID + " " + r.level + "\n");
+				// Adds the SSID, the received signal level, capabilities and adds a line break
+				scanDisplay.append(r.SSID + " " + r.level + "\n" + r.capabilities + "\n");
 				// Passes a single wifi network to the checkForKnownNetwork method
-				checkForKnownNetwork(r);
+				//checkForKnownNetwork(r);
+				
+				Log.d(TAG, "Starting search for expected wifi network.");
+				
+				// Connects to all wifi networks we can see that are open
+				if (validWifi(r))
+				{
+					
+					// Use NetworkConfiguration class to store network to connect to
+					
+					// Since the wifi network is open copy the parameters we need
+					targetedNetwork.SSID = r.SSID;
+					targetedNetwork.BSSID = r.BSSID;
+					targetedNetwork.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
+					int networkID = 0;
+					
+					// This only adds the network, it does not connect to it. If this returns -1 we have a problem
+					networkID = wifiManager.addNetwork(targetedNetwork); // This is failing for some reason on the phone I have for testing
+					
+					Log.d(TAG, "Found an expected wifi network." + networkID);
+		    			
+		    		// Make sure we are disconnected from any wifi network
+		    		wifiManager.disconnect();
+		    			
+		    		// Enable the configured target network	    			
+		    		wifiManager.enableNetwork(networkID, true);
+		    		
+		    		// Call file download method, this will return once it is done
+		    		ftpDownload();
+		    		
+		    		// Disconnect from the wifi network
+		    		wifiManager.disableNetwork(networkID);
+		    		
+		    		// Remove the wifi network
+		    		wifiManager.removeNetwork(networkID);
+
+					
+				}
+				
+				// Save all wifi networks seen
+				allScans.add(r.toString());
 				
 			}
 			
@@ -193,210 +283,120 @@ public class MainActivity extends Activity {
 			
 			// Set this textView to the results of the scan that we organized in the above for each loop
 			wifiScanList.setText(scanDisplay.toString());
-			
-			// Debug that displays if we are in the process of connecting or if we are connected
-			debug4.setText("connecting?: " + connecting);
-			debug.setText("now connecting/connected: " + targetNetwork.SSID);
 
 		}
 		
 	};
 	
-	// This most likely won't be needed as we will just connect to any network we find
-	private void loadNetworkConfigurations() {
-		
-		// Need to write code here that will dynamically add configured networks
-		// Import from a file saved on the phone is probably the best option
-		
-		/*
-		 * File wifiSettings = new File("wifiSettings.txt");
-		 */
-		
-		NetworkConfiguration net = new NetworkConfiguration("http://192.168.1.1/");
-    	net.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
-    	net.SSID = "\"OpenWrt\"";
-    	net.BSSID = "a0:f3:c1:c9:39:03";
-    	net.networkId = wifiManager.addNetwork(net);
-    	networkConfigurations.add(net);
-    	
-    	NetworkConfiguration net2 = new NetworkConfiguration("http://192.168.1.2/");
-    	net2.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
-    	net2.SSID = "\"AbrahamLinksys\"";
-    	net2.BSSID = "a0:f3:c1:a6:6c:58";
-    	net2.networkId = wifiManager.addNetwork(net2);
-    	networkConfigurations.add(net2);
-    	
-	}
-
-	// Most likely won't be needed as we just connect to any network we find
-	private boolean checkForKnownNetwork(ScanResult r) {
-		
-		Iterator<NetworkConfiguration> i = networkConfigurations.iterator();
-		
-		while (i.hasNext()) { // While there are still unchecked entries in the list of networks we can see continue the loop? I think?
-			
-			NetworkConfiguration network = i.next(); // Set network to be the next unchecked network
-			
-			if (r.BSSID.equals(network.BSSID) && !r.BSSID.equals(wifiManager.getConnectionInfo().getBSSID()) && !connecting) {
-				
-				// Connect to network
-				
-				connecting = true;
-				targetNetwork = network;
-				
-				i.remove();
-				
-				debug2.setText("remaining configured networks: " + networkConfigurations.size());
-				
-				return true;
-			}
-			
-		}
-		
-		return false;	
-	}
-	
-	// Does the work of connecting, downloading, and then disconnecting from wifi networks
-	Thread connectToNetwork = new Thread() {
-		
-		// This thread does the work of downloading data from the base station once connected
-	    
-		@Override
-	    public void run() {
-	    	
-	    	while (true) { // Always have this looking to see if we are connected to a new wifi network
-	    		
-	    		if (connecting && !connectOnce) {
-	    			wifiManager.disconnect(); // Make sure we are disconnected from any wifi network
-	    			wifiManager.enableNetwork(targetNetwork.networkId, true); // 
-	    			wifiManager.reconnect();
-	    			connectOnce = true;
-	    			
-	    			Timer newConnection = new Timer();
-		    		newConnection.schedule(new TimerTask() {
-		    			
-		    			@Override
-		    			public void run() {
-		    				
-		    				// queue download
-		    				ArrayList<Uri> dlUris = targetNetwork.getDownloadUris(); // Make an array list of the files we want to download, in URI form
-		    				
-		    				//for (Uri u : dlUris) {
-		    					//downloadData(u); // Send files to download to the downloadData method
-		    					downloadData(); // At this time we only need to call this as files to download are hard coded
-		    				//}
-		    				
-		    				Timer download = new Timer();
-		    				download.schedule(new TimerTask() {
-		    					
-		    					@Override
-		    					public void run() {
-		    						
-		    						// Reset the variable
-		    						connecting = false;
-		    						// Reset the variable
-		    						connectOnce = false;
-		    						// Disconnect from any connected network
-		    						wifiManager.disconnect();
-		    						// TODO Figure out what this does
-		    						targetNetwork.equals(null); 
-		    						// Remove the network we just downloaded data from out of wifi config
-		    						wifiManager.removeNetwork(targetNetwork.networkId);
-		    					}
-		    					
-		    				}, 120000); // <-- Time to allow for the file to download, if it doesn't download in this time we interrupt the download
-		    				
-		    			}
-		    			
-		    		}, 120000); // <--- Time to wait before download (after connecting) (Orig)
-	    		}
-	    		
-	    	}
-	    		
-	    }
-	};
-	
-	
-		// Uses AndFTP to download data off of weather stations
-		private void downloadData()
-		//private void downloadData(Uri uri)
+	/**
+	 * Check if the scanned wifi network has open encryption
+	 * @param r A ScanResult object to check if it is Open encryption
+	 * @return True if the wifi network has open encryption, false if it is something else
+	 */
+	private boolean validWifi(ScanResult r)
 	{
-		// Taken from http://www.lysesoft.com/products/andftp/intent.html
-		// These settings are stored in a key : value format. The first thing is the key, the property name, second is the setting value
-
-		Intent downloadFiles = new Intent();
 		
-		downloadFiles.setAction(Intent.ACTION_PICK);
-		// Server to download from
-		Uri ftpUri = Uri.parse("ftp://192.168.1.2");
-		
-		downloadFiles.setDataAndType(ftpUri, "vnd.android.cursor.dir/lysesoft.andftp.uri");
-		// Action for AndFTP to do, in this case download from the server
-		downloadFiles.putExtra("command_type", "download");
-		// FTP username to use
-		downloadFiles.putExtra("ftp_username", "root");
-		// FTP password to use
-		downloadFiles.putExtra("ftp_password", "root");
-		
-		//intent.putExtra("ftp_keyfile", "/sdcard/rsakey.txt");
-		//intent.putExtra("ftp_keypass", "optionalkeypassword");
-		
-		// Set optional FTP options
-		downloadFiles.putExtra("ftp_pasv", "true");
-		
-		// First file to download
-		downloadFiles.putExtra("remote_file1", "/www/Abraham.txt");
-		// Second file to download
-		//downloadFiles.putExtra("remote_file2", "/www/Linksys.txt");
-		// Third file to download
-		//downloadFiles.putExtra("remote_file3", "/www/test.png");
-		// Target local folder where files will be downloaded
-		// downloadFiles.putExtra("local_folder", Environment.getExternalStorageDirectory().getPath() + "/stationdata");
-		//downloadFiles.putExtra("local_folder", Environment.getExternalStorageDirectory().getAbsolutePath() + "stationdata");
-		downloadFiles.putExtra("local_folder", "/sdcard2/stationdata"); // Bad idea to hardcode this for real but doing this for testing
-		
-		// Closes the AndFTP interface after the download is complete
-		downloadFiles.putExtra("close_ui", "true"); 
-
-		// Finally start the Activity to be closed after transfer:
-		startActivityForResult(downloadFiles, DOWNLOAD_FILES_REQUEST);
-
-	}
-		
-		// Taken from the AndFTP example third party client
-		protected void onActivityResult(int requestCode, int resultCode, Intent intent) 
+		// Check if authentication is Open, if it is return true, if it isn't return false
+		if (r.capabilities.equals("[ESS]") && !r.BSSID.equals(wifiManager.getConnectionInfo().getBSSID()))
 		{
-			Log.i(TAG, "Result: "+resultCode+ " from request: "+requestCode);
-			if (intent != null)
+			
+			// Set the boolean flag to indicate we are in the process of connecting to a wifi network			
+			return true;
+			
+			// Connect to network
+		}
+		return false;		
+	}
+	
+	/**
+	 * Connects to an FTP server and downloads all files in the /www/ directory
+	 */
+	private void ftpDownload()
+	{
+
+		// Address of the FTP server
+		String server = "192.168.1.2";
+
+		// The FTP Client object
+		FTPClient ftp = new FTPClient();
+
+		boolean error = false; // Boolean flag if the problem encounters any problem
+
+		try {
+
+			int reply; // Store the FTP server command result reply
+
+			// FTP server to connect to
+			ftp.connect(server);
+
+			// FTP username
+			ftp.user("root");
+
+			// FTP password
+			ftp.pass("root");
+
+			// Log the FTP server we connect to
+			Log.i(TAG, "Connected to " + server);
+
+			// Log the response from the FTP server
+			Log.i(TAG, ftp.getReplyString());
+
+			// After connection attempt, you should check the reply code to verify success.
+			reply = ftp.getReplyCode();
+
+			// Check the reply code to see if it is a successful response or a failure response
+			if(!FTPReply.isPositiveCompletion(reply)) {
+
+				// If the response is a failure, disconnect from the server
+				ftp.disconnect();
+
+				// Print out that the connect didn't work to the server
+				Log.e(TAG, "FTP server refused connection.");
+
+				// Stop running the program
+				System.exit(1);
+			}
+
+			// Store list of files in target directory from the FTP server
+
+			FTPFile[] filesToDownload = ftp.listFiles("/www/"); // At this time test files are stored in /www/ directory
+
+			// Download each file listed in the directory
+
+			for (FTPFile ftpDownloadFile : filesToDownload)
 			{
-				String transferredBytesStr = intent.getStringExtra("TRANSFERSIZE");
-				String transferTimeStr = intent.getStringExtra("TRANSFERTIME");
-				Log.i(TAG, "Transfer status: " + intent.getStringExtra("TRANSFERSTATUS"));
-				Log.i(TAG, "Transfer amount: " + intent.getStringExtra("TRANSFERAMOUNT") + " file(s)");
-				Log.i(TAG, "Transfer size: " + transferredBytesStr + " bytes");
-				Log.i(TAG, "Transfer time: " + transferTimeStr + " milliseconds");
-				// Compute transfer rate.
-				if ((transferredBytesStr != null) && (transferTimeStr != null))
+
+				// Make sure this entry is a file
+				if(ftpDownloadFile.isFile())
 				{
-					try
-					{
-						long transferredBytes = Long.parseLong(transferredBytesStr);
-						long transferTime = Long.parseLong(transferTimeStr);
-						double transferRate = 0.0;
-						
-						if (transferTime > 0)
-						{
-						transferRate = ((transferredBytes) * 1000.0) / (transferTime * 1024.0);
-						}
-						
-						Log.i(TAG, "Transfer rate: " + transferRate + " KB/s");
-					} 
-					catch (NumberFormatException e)
-					{
-						// Cannot parse string.
-					}
+
+					// Make a local file to store the downloaded file in
+					File saveFile = new File(Environment.getExternalStorageDirectory() + "QuadForge" + ftpDownloadFile.getName()); // Directory needs to exist
+
+					// Make an output stream to save this file in
+					OutputStream saveFileStream = new FileOutputStream(saveFile);
+
+					// Download the file and put it into the output stream for saving
+					ftp.retrieveFile(ftpDownloadFile.getName(), saveFileStream);
+				}
+
+			}
+
+			ftp.logout();
+		} catch(IOException e) {
+			error = true;
+			e.printStackTrace();
+		} finally {
+			if(ftp.isConnected()) {
+				try {
+					ftp.disconnect();
+				} catch(IOException ioe) {
+					// do nothing
 				}
 			}
+			System.exit(error ? 1 : 0);
 		}
-	
+
+	}
+
 }

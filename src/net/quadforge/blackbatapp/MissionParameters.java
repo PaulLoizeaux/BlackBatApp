@@ -1,3 +1,11 @@
+/**
+ * Stores configuration settings for the mission.
+ * 
+ * Defines various settings in regards to things like scan times, database connections, wifi networks to look for, servers to connect to and files to download.
+ * 
+ * Most of this at this time is not used. This will transition at a later date to be a settings file so it is user editable.
+ */
+
 package net.quadforge.blackbatapp;
 
 public abstract class MissionParameters {
@@ -7,7 +15,7 @@ public abstract class MissionParameters {
 	public static int DOWNLOAD_DELAY = 2000;
 	public static int WIFI_SWITCH_DELAY = 6000;
 
-	// Database
+	// Database configuration information, not used currently
 	public static String DATABASE_NAME = "Test";
 	public static int DATABASE_VERSION = 2;
 	public static String TABLE_NAME = "BlackBatData";
@@ -19,17 +27,17 @@ public abstract class MissionParameters {
 	public static String DEBUG_TAG = "bbdebug";
 
 	// Time between wifi scans in milliseconds and initial scan delay.
-	public static Long WIFI_SCAN_INTERVAL = 1000L;
+	public static Long WIFI_SCAN_INTERVAL = 15000L;
 	public static Long WIFI_SCAN_INITIAL_DELAY = 0L;
 
 	// Do not change this.
 	public static Long WIFI_TIME_INCREMENT = WIFI_SCAN_INTERVAL / 1000;
 
-	// GPS
+	// GPS settings
 	public static Long GPS_SCAN_INTERVAL = (long) 5000;
 	public static Boolean GPS_ON = false;
 
-	// Name of text file.
+	// Name of text file for the wifi log
 	public static String LOG_FILE_NAME = "WifiLog.txt";
 
 	// Name of directory to host text file on phone.
@@ -42,6 +50,7 @@ public abstract class MissionParameters {
 	public static int LOGGED_NETWORKS_MAX = 5000;
 
 	// FTP information used in Upload activity.
+	// Most likely not needed, will just pull data off SD card
 	public static String FTP_SERVER_ADDRESS = "ftp://quadforge.net";
 	public static String FTP_USERNAME = "";
 	public static String FTP_PASSWORD = "";

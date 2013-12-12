@@ -1,3 +1,7 @@
+/**
+ * Extended WifiConfiguration that is able to store FTP server information
+ */
+
 package net.quadforge.blackbatapp;
 
 import java.util.ArrayList;
@@ -10,6 +14,10 @@ public class NetworkConfiguration extends WifiConfiguration {
 	private ArrayList<DataStructure> dataStructures;
 	protected String networkRootPath;
 	
+	/**
+	 * Construct a new NetworkConfiguraiton object
+	 * No FTP server is specified
+	 */
 	public NetworkConfiguration() {
 		super();
 		
@@ -18,6 +26,10 @@ public class NetworkConfiguration extends WifiConfiguration {
 		initializeDataStructures();
 	}
 	
+	/**
+	 * Construct a new NetworkConfiguration object
+	 * @param path Address of the FTP server to connect to
+	 */
 	public NetworkConfiguration(String path) {
 		super();
 		
@@ -47,6 +59,12 @@ public class NetworkConfiguration extends WifiConfiguration {
 		
 	}
 	
+	/**
+	 * Returns URIs of the HTTP server address and the file we want to download
+	 * No longer in use as we don't connect over HTTP now
+	 * @return An ArrayList of the URIs we want to connect to
+	 */
+	@Deprecated
 	public ArrayList<Uri> getDownloadUris() {
 		
 		ArrayList<Uri> list = new ArrayList<Uri>();
