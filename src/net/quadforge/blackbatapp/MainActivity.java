@@ -202,7 +202,9 @@ public class MainActivity extends Activity {
 			
 			
 			Handler again = new Handler();
-			again.postDelayed(scanReceiver, MissionParameters.WIFI_SCAN_INTERVAL); //TODO Time of delay between each wifi scan. Change to a variable, changable via settings file
+			
+			//TODO Time of delay between each wifi scan. Change to a variable, changable via settings file
+			again.postDelayed(scanReceiver, MissionParameters.WIFI_SCAN_INTERVAL);
 			
 			
 			// Display current network
